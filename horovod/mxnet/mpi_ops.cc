@@ -38,6 +38,7 @@ std::string GetOpName(const char* prefix, const char* name) {
 
 static const auto MX_EXEC_CTX = Context();
 static const auto MX_FUNC_PROP = FnProperty::kCPUPrioritized;
+static const auto MX_NORMAL_FUNC_PROP = FnProperty::kNormal;
 static const char* ALLREDUCE_OP_TYPE_NAME = "horovod_allreduce";
 static const char* ALLGATHER_OP_TYPE_NAME = "horovod_allgather";
 static const char* BROADCAST_OP_TYPE_NAME = "horovod_broadcast";
@@ -128,15 +129,24 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   // Not in-place
   auto input_var = input->var();
   auto output_var = output->var();
+  auto horovod_priority = std::getenv("HOROVOD_NORMAL");
+  bool use_priority = true;
+  if (horovod_priority != nullptr) {
+    int64_t p = std::strtol(horovod_priority, nullptr, 10);
+    if (p > 0) {
+        use_priority = false;
+    }
+  }
+
   if (input_var != output_var) {
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
-                      &MX_FUNC_PROP, priority, op_type_name);
+                      use_priority ? &MX_FUNC_PROP : &MX_NORMAL_FUNC_PROP, priority, op_type_name);
   // In-place
   } else {
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
-                      &MX_FUNC_PROP, priority, op_type_name);
+                      use_priority ? &MX_FUNC_PROP : &MX_NORMAL_FUNC_PROP, priority, op_type_name);
   }
 }
 
@@ -197,9 +207,20 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
 
   // In-place
   auto cpu_tensor_var = hvd_cpu_buffer->tensor()->var();
+
+
+  auto horovod_priority = std::getenv("HOROVOD_NORMAL");
+  bool use_priority = true;
+  if (horovod_priority != nullptr) {
+    int64_t p = std::strtol(horovod_priority, nullptr, 10);
+    if (p > 0) {
+        use_priority = false;
+    }
+  }
+
   MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
                     &MX_EXEC_CTX, nullptr, 0, &cpu_tensor_var, 1,
-                    &MX_FUNC_PROP, priority, op_type_name);
+                    use_priority ? &MX_FUNC_PROP : &MX_NORMAL_FUNC_PROP, priority, op_type_name);
 
   // Make async copy of CPU tensor to output tensor.
   TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
