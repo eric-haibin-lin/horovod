@@ -113,7 +113,7 @@ class DistributedTrainer(mx.gluon.Trainer):
         for i, param in enumerate(reversed(self._target) if self._reversed else self._target):
             if param.grad_req != 'null':
                 allreduce_(param.list_grad()[0], average=False,
-                           name=str(i), priority=-i)
+                           name=param.name, priority=-i)
 
 
 # Wrapper to inject Horovod broadcast after parameter initialization
