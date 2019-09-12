@@ -96,10 +96,21 @@ class DistributedTrainer(mx.gluon.Trainer):
         # function. Normalizing it by Horovod size, which is equivalent to performing
         # average in allreduce, has better performance. 
         self._scale /= size()
+        self._target = None
+        self._reversed = False
 
     def _allreduce_grads(self):
+        if self._target is None:
+            import os
+            do_sort = int(os.environ.get('HVD_SORT', '0')) > 0
+            self._reversed = int(os.environ.get('HVD_REVERSE', '0')) > 0
+            self._target = self._params
+            self._target = sorted(self._params, key=lambda p: p.name) if do_sort else self._target
+            if rank() == 0:
+                for p in reversed(self._target) if self._reversed else self._target:
+                    print(p.name)
         # sort needed for Python < 3.6 is not guaranteed
-        for i, param in enumerate(sorted(self._params, key=lambda p: p.name)):
+        for i, param in enumerate(reversed(self._target) if self._reversed else self._target):
             if param.grad_req != 'null':
                 allreduce_(param.list_grad()[0], average=False,
                            name=str(i), priority=-i)
