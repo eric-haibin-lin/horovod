@@ -122,7 +122,7 @@ def _append_broadcast_init(param, root_rank):
     def wrapped_init_impl(self, *args, **kwargs):
         init_impl(*args, **kwargs)
         broadcast_(self.data(), root_rank=root_rank)
-        self.data().wait_to_read()
+        # self.data().wait_to_read()
     return wrapped_init_impl
 
 
