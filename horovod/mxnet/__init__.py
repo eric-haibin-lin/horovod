@@ -131,12 +131,19 @@ def broadcast_parameters(params, root_rank=0):
 
     tensors = []
     names = []
-    if isinstance(params, dict):
-        names, tensors = zip(*params.items())
-    elif isinstance(params, mx.gluon.parameter.ParameterDict):
+    valid_types = (dict, )
+    try:
+        from mxnet.gluon.parameter import ParameterDict
+        valid_types = (dict, mx.gluon.parameter.ParameterDict)
+    except ImportError:
+        pass
+    if isinstance(params, valid_types)):
         for name, p in sorted(params.items()):
             try:
-                tensors.append(p.data())
+                if isinstance(p, mx.gluon.parameter.Parameter):
+                    tensors.append(p.data())
+                else:
+                    tensors.append(p)
                 names.append(name)
             except mx.gluon.parameter.DeferredInitializationError:
                 # Inject wrapper method with post-initialization broadcast to
