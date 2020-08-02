@@ -126,8 +126,6 @@ params = model.collect_params()
 if params is not None:
     hvd.broadcast_parameters(params, root_rank=0)
 
-mx.nd.waitall()
-print('broadcast done')
 # Horovod: create DistributedTrainer, a subclass of gluon.Trainer
 trainer = hvd.DistributedTrainer(params, opt)
 
